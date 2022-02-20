@@ -136,7 +136,7 @@ excel_data <- read_xlsx(filename, sheet = 1) #(to read the first sheet)
 --> Apply the summary function to fev_data. What does it do?
 
 ```{r}
-# Add your code here!
+summary(fev_data) 
 ```
 
 
