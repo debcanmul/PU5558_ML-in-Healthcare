@@ -1,0 +1,331 @@
+---
+title: "K-Means and Hierarchical Clustering"
+author: "DBlana"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Clustering
+
+The aim of clustering techniques is to find subgroups within our dataset. It is a type of unsupervised learning.
+
+## K-means
+
+The K-means algorithm aims to partition data into a given number of clusters, in which each data point belongs to the cluster with the nearest mean. 
+
+To do this, we need a method for computing the distance between each pair of data points. The result of this computation is called the dissimilarity matrix. K-means uses the Euclidean distance for this computation, so it only works with numerical data.
+
+### Load packages
+
+We will use tidyverse, tidymodels, factoextra (a package that provides nice clustering visualisations and easy calculation of the optimal number of clusters) and cluster (for dissimilarity matrix calculations). 
+
+Make sure you run install.packages("tidyverse"), install.packages("tidymodels"), install.packages("factoextra") and install.packages("cluster") if you haven't already installed these packages.
+
+```{r load-packages}
+
+library(tidyverse)
+library(tidymodels)
+library(factoextra)
+library(cluster)
+
+```
+
+### Create some data
+
+We will generate random two-dimensional data with three clusters. Data in each cluster will come from a multivariate gaussian distribution, with different means for each cluster.
+
+(Don't worry too much about the code that generates the data below. It is quite useful to know how to generate "fake" data to practice with new algorithms as we are doing here, or to share code with others without sharing real data which may be private. But we are not focussing on this in this course.)
+
+```{r generate-data}
+
+# from https://www.tidymodels.org/learn/statistics/k-means/
+
+set.seed(27)  # this ensures we always generate the same data, for reproducibility
+
+centers <- tibble(
+  cluster = factor(1:3), 
+  num_points = c(100, 150, 50),  # number of points in each cluster
+  x1 = c(5, 0, -3),              # x1 coordinate of cluster center
+  x2 = c(-1, 1, -2)              # x2 coordinate of cluster center
+)
+
+labelled_points <- 
+  centers %>%
+  mutate(
+    x1 = map2(num_points, x1, rnorm),
+    x2 = map2(num_points, x2, rnorm)
+  ) %>% 
+  select(-num_points) %>% 
+  unnest(cols = c(x1, x2))
+
+# have a look at the contents of labelled_points
+glimpse(labelled_points)  
+
+# plot the two numerical columns x1 and x2 against each other, and colour by cluster
+ggplot(labelled_points, aes(x1, x2, color = cluster)) +
+  geom_point(alpha = 0.3)
+
+```
+
+### Apply the k-means clustering algorithm
+
+We’ll use the built-in kmeans() function, which accepts a data frame with all numeric columns as its main input. Make sure all the columns are numeric, if there are categorical variables in your dataset you will need to remove them first (in the same way we are removing the "cluster" column below).
+
+```{r apply-clustering}
+
+points <- 
+  labelled_points %>% 
+  select(-cluster)  # remove the "cluster" column as this is what we are trying to find
+
+kclust <- kmeans(points, centers = 3)  # we want three clusters
+
+# Let's have a look at the output "kclust":
+kclust
+
+```
+
+As we can see, k-means produced 3 clusters of different sizes, and it shows us the cluster centers (means) for the three groups across the two variables (x1 and x2). 
+
+Of particular interest is the tot.withinss value, as this is the total within-cluster sum of squares, which is what the k-mean algorithm tries to minimise. The total WSS measures the compactness of the clustering, and we want it to be as small as possible.
+
+```{r wss}
+
+kclust$tot.withinss
+
+```
+fviz_cluster() provides a nice illustration of the clusters. If we had more than two variables (more than x1 and x2), fviz_cluster would perform principal component analysis (an algorithm for dimensionality reduction that we will only briefly mention in this course) and plot the data points according to the first two principal components.
+
+```{r}
+
+fviz_cluster(kclust, data = points)
+
+```
+
+### Optimal number of clusters
+
+To run the k-means algorithm, we need to specify the number of clusters in advance (in our case, three). But how do we decide on this number when we use real datasets? There are a few different methods for determining the optimal number of clusters, here we will look at two.
+
+Broadly speaking, when we create clusters, we want to have minimum distance between points within a cluster (what we'd call compactness), and maximum distance between different groups (separation). The first method is related to compactness and the second to separation.
+
+1. Elbow method
+
+As we've already seen, k-means tries to minimise the total within-cluster sum of squares (WSS). The Elbow method looks at the total WSS as a function of the number of clusters: we choose the number of clusters so that adding another cluster doesn’t improve the total WSS much.
+
+```{r elbow}
+
+# For this function, if we don't specify the maximum number of clusters (k.max), the default is 10
+fviz_nbclust(points, kmeans, k.max = 10, method = "wss")
+
+```
+
+Looking at the above plot, there is a bend ("elbow") around k=3, so that would be an appropriate number of clusters.
+
+2. Average silhouette method
+
+The silhouette analysis estimates the average distance between clusters, so unlike WSS, we want the silhouette coefficient to be as large as possible.
+
+```{r silhouette}
+
+fviz_nbclust(points, kmeans, k.max = 10, method = "silhouette")
+
+```
+
+The silhouette method identified the same optimal number of clusters, k=3.
+
+## Real data example
+
+At the Aberdeen Centre for Health Data Science, we have created the Scotland Vulnerability Resource (SVR), a ready-to-use resource that unifies demographic, socioeconomic, and deprivation measures for Scotland in a single data set. You can read more about it here: https://github.com/AbdnCHDS/Scotland_Vulnerability_Resource
+
+You have been given the latest version of the resource (v0.2) and the documentation. Let's read in the data and have a look at it:
+
+```{r read-data}
+
+scot_data <- read_csv("Scotland-Vulnerability-Resource_v0.2.csv")
+
+glimpse(scot_data)
+  
+```
+
+Let's see if we can cluster Grampian datazones according to some of the health metrics.
+
+```{r prepare-health-data}
+
+health_data <- scot_data %>%
+  filter(NHS_Health_Board_Region=="Grampian") %>%  # select only the rows in Grampian
+  select(Data_Zone,CIF,ALCOHOL,DRUG,SMR,EMERG) %>%
+  drop_na() %>%  # remove rows with missing values
+  unique() # keep only unique rows - we need this because the spatial resolution of the data is datazones, but each row is a different postcode, which means that there are multiple rows for each datazone
+
+points <- health_data %>% 
+  select(-Data_Zone) # The "Data Zone" variable will not be used for clustering
+
+summary(points)
+
+```
+Let's have a quick look at the data, using a scatter plot between two of the variables. You can change the variables and repeat the plot:
+
+```{r scatterplot-health-data}
+
+points %>%
+  ggplot(aes(x=CIF,y=ALCOHOL)) +
+  geom_point(alpha = 0.8)  
+
+```
+
+We can see that in general, most points are in the bottom left corner, with a few scattered further up and to the right. We can also draw boxplots for each numeric variable:
+
+```{r boxplots-health-data}
+
+health_data %>% 
+  pivot_longer(-Data_Zone) %>%  # this reformats the data so we can create boxplots for each numeric column
+  ggplot(aes(x=name,y=value,fill=name))+
+  geom_boxplot() +                        
+  geom_jitter(alpha = 0.1)# add data points
+
+```
+
+Based on the graphs, we expect to have two clusters: a larger one with smaller standardised ratios, and a smaller one with larger standardised ratios. Let's try up to 5 clusters, using the Silhouette method. (You can change the code to the WSS method to see what happens.)
+
+```{r cluster-health-data-silhouette}
+
+fviz_nbclust(points, kmeans, k.max = 5, method = "silhouette")
+
+```
+
+As expected, the optimal number of clusters is 2. Let's use the kmeans() function with two clusters, and look at the output.
+
+```{r two-clusters-health-data}
+
+kclust <- kmeans(points, centers = 2)
+
+kclust$size
+kclust$centers
+
+```
+
+Are the size and centres of the clusters what you'd expect?
+
+Finally, let's re-draw the scatterplot from earlier, coloured by cluster:
+
+```{r scatterplot-cluster-health-data}
+
+data_clustered <- augment(kclust, points)
+
+data_clustered %>%
+  ggplot(aes(x=CIF,y=ALCOHOL)) +
+  geom_point(aes(color = .cluster), alpha = 0.8)  
+
+```
+
+As we have more than two variables in this dataset, fviz_cluster() would do principle component analysis and include the first two components for the plot. Try it if you'd like!
+
+## Scaling
+
+One step that we did not discuss here is scaling the variables, so they have similar units. This was not necessary for our example, because all variables already had similar scales. But in general, if, for example, you had one variable between 0-1 and another 100-300, this would affect the distance calculation. You can use the scale() function to normalise the variables:
+
+norm_points <- as.data.frame(scale(points))
+
+We will talk more about scaling as one of the pre-processing steps in supervised learning algorithms in the next few weeks.
+
+## Practice
+
+Repeat this analysis for a different health board or council area, and for a different group of variables from the Scotland Vulnerability Resource. Remember to use only numeric variables, as k-means does not work with categorical data because it uses the Euclidean distance as the dissimilarity metric between clusters. Next, we will look at hierarchical clustering, which can use dissimilarity metrics suitable for categorical data.
+
+## Hierarchical Clustering
+
+Hierarchical clustering works by building a hierarchy of clusters. There are two strategies for hierarchical clustering:
+
+1. Agglomerative: a "bottom-up" approach, where each data point starts in its own cluster, and pairs of clusters are merged as one moves up the hierarchy.
+2. Divisive: a "top-down" approach, where all data points start in one cluster, and splits are performed recursively as one moves down the hierarchy.
+
+We will use the build-in hclust() function to perform agglomerative hierarchical clustering.
+
+Let's use the same dataset, the Scotland Vulnerability Resource, but convert some of the variables to categorical variables. We'll try to cluster Grampian datazones according to geographical access to services: 
+
+```{r prepare-geog-data}
+
+geog_acc <- scot_data %>%
+  filter(NHS_Health_Board_Region=="Grampian") %>%  # select only the rows in Grampian
+  select(Data_Zone,drive_petrol,drive_GP,drive_post,
+         drive_primary,drive_retail,drive_secondary) %>%  # select only the geographic access columns
+  drop_na() %>%  # remove rows with missing values
+  unique() # keep only unique rows - we need this because the spatial resolution of the data is datazones, but each row is a different postcode, which means that there are multiple rows for each datazone
+
+points <- geog_acc %>% 
+  select(-Data_Zone) # The "Data Zone" variable will not be used for clustering
+
+summary(points)
+
+```
+This dataset contains average time in minutes to various destinations. As before, let's look at scatterplots for pairs of variables: 
+
+```{r scatterplot-geog-data}
+
+points %>%
+  ggplot(aes(x=drive_petrol,y=drive_GP)) +
+  geom_point(alpha = 0.8)  
+
+```
+
+And boxplots for each variable:
+
+```{r boxplots-geog-data}
+
+geog_acc %>% 
+  pivot_longer(-Data_Zone) %>%  # this reformats the data so we can create boxplots for each numeric column
+  ggplot(aes(x=name,y=value,fill=name))+
+  geom_boxplot() +                        
+  geom_jitter(alpha = 0.1)# add data points
+
+```
+
+The pattern seems similar to the health data: most trips are quick, and a few are longer. You can use k-means to cluster the numerical data, as we did for the health data, and see if you get the number and size of clusters you'd expect.
+
+Here, we'll convert the data to categorical so we can practice. Let's assume that anything below 8 minutes is quick, and anything above 8 minutes is slow. The choice of cutoff will of course influence our results - you can change this and see the difference.
+
+```{r categorise-geog-data}
+
+categ_points <- points %>%
+  mutate(across(everything(),  # here we want to apply the function cut() to all variables
+                ~ cut(.x,
+                      breaks=c(0, 8, Inf), # cut() divides a continuous variable into intervals
+                   labels=c("quick","slow"))))
+  
+```
+
+The input to hclust() is the dissimilarity matrix, which can be calculated with the function daisy(). This function can use the Euclidean distance, but also metrics appropriate for categorical or mixed data, such as Gower's distance. Use ?daisy to read more about the options for metrics.
+
+hclust() also has a "method" input, as you see below. This is the clustering method. Here, again, I encourage you to use ?hclust to read about the different methods. You do not need to understand everything about these options, but you should keep in mind that when you use machine learning algorithms, you need to make decisions such as the type of clustering method you use, and this affects your results.
+
+```{r hierarchical-clustering}
+
+hier_cluster <- categ_points %>%
+  daisy(metric = "gower") %>%
+  hclust(method = "complete")
+
+```
+
+In agglomerative clustering, each data point is initially assigned to its own cluster, and step by step the algorithm joins the two most similar clusters, until there is only a single cluster left. How do we decide what number of clusters make sense? Dendrograms are a good way to look at clustering results:
+
+```{r dendrogram}
+
+# Here we are colouring 2 clusters, but you could change that to any number or remove
+fviz_dend(hier_cluster, main = "complete", k=2, show_labels = FALSE)
+
+```
+You can also do hierarchical clustering with numerical data:
+
+```{r}
+
+hier_cluster_n <- points %>%
+  daisy(metric = "gower") %>%
+  hclust(method = "complete")
+
+fviz_dend(hier_cluster_n, main = "complete", k=2, show_labels = FALSE)
+
+```
+We've looked at two types of clustering: k-means and hierarchical agglomerative clustering. Keep in mind that clustering is an exploratory technique, there is no "correct number of clusters" in a dataset - these methods will give you clusters, whether there are actual subgroups in the dataset or not. It requires good understanding of the data to decide whether a set of clusters makes sense.
+
