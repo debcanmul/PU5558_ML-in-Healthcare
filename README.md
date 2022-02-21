@@ -10,3 +10,9 @@
 #fev.csv
 #Introduction-to-R.rmd
 #R_tidyverse.Rmd 
+
+
+#Week 4 Computer Practical - Unsupervised Learning
+
+#The aim of clustering techniques is to find subgroups within our dataset. It is a type of unsupervised learning.
+#Download and work through the attached R markdown file. It introduces two clustering methods: k-means and hierarchical agglomerative clustering.
