@@ -26,6 +26,8 @@ Make sure you run install.packages("tidyverse"), install.packages("tidymodels"),
 
 ```{r load-packages}
 
+install.packages("cluster")
+
 library(tidyverse)
 library(tidymodels)
 library(factoextra)
@@ -173,6 +175,13 @@ points %>%
   ggplot(aes(x=CIF,y=ALCOHOL)) +
   geom_point(alpha = 0.8)  
 
+```
+
+```{r Scatterplot-Health-Data Changed Variables}
+
+points %>%
+  ggplot(aes(x=SMR,y=DRUG)) +
+  geom_point(alpha = 0.8)  
 ```
 
 We can see that in general, most points are in the bottom left corner, with a few scattered further up and to the right. We can also draw boxplots for each numeric variable:
