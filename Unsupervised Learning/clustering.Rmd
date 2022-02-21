@@ -183,7 +183,7 @@ points %>%
   ggplot(aes(x=SMR,y=DRUG)) +
   geom_point(alpha = 0.8)  
 ```
-
+Note - The comment below refers to the first scatterplot.
 We can see that in general, most points are in the bottom left corner, with a few scattered further up and to the right. We can also draw boxplots for each numeric variable:
 
 ```{r boxplots-health-data}
@@ -203,7 +203,13 @@ Based on the graphs, we expect to have two clusters: a larger one with smaller s
 fviz_nbclust(points, kmeans, k.max = 5, method = "silhouette")
 
 ```
+```{r cluster- health-data- wss}
 
+fviz_nbclust(points, kmeans, k.max = 5, method = "wss")
+```
+
+
+Note - Comment below is for the silhouette graph.
 As expected, the optimal number of clusters is 2. Let's use the kmeans() function with two clusters, and look at the output.
 
 ```{r two-clusters-health-data}
