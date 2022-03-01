@@ -1,0 +1,92 @@
+<<<<<<< debcanmul_Unsupervised-Learning
+install.packages("cluster")
+
+#There were conflicts so I cut my work out the file and saved it here. All the files and datasets are in clustering.Rmd. This markdown file will need this copied to allow the code to work.
+
+
+
+```{r Scatterplot-Health-Data Changed Variables}
+
+points %>%
+  ggplot(aes(x=SMR,y=DRUG)) +
+  geom_point(alpha = 0.8)  
+```
+Note - The comment below refers to the first scatterplot.
+=======
+>>>>>>> main
+
+<<<<<<< debcanmul_Unsupervised-Learning
+```{r cluster- health-data- wss}
+
+fviz_nbclust(points, kmeans, k.max = 5, method = "wss")
+```
+
+
+Note - Comment below is for the silhouette graph.
+=======
+
+>>>>>>> main
+
+<<<<<<< debcanmul_Unsupervised-Learning
+```{r}
+head(health_data)
+```
+
+```{r}
+#need to give coordinates to fviz_cluster
+clustertest<-health_data %>% 
+  select(SMR,EMERG)%>%
+fviz_cluster(kclust, data =clustertest)
+```
+
+
+=======
+>>>>>>> main
+
+<<<<<<< debcanmul_Unsupervised-Learning
+```{r - Start of my practice for Tayside}
+head(scot_data)
+```
+```{r}
+#checking for other regions in the NHS Health Board
+scot_data%>%
+  select(NHS_Health_Board_Region)%>%
+  unique()
+```
+
+```{r - Practice Tayside}
+health_data2 <- scot_data %>%
+  filter(NHS_Health_Board_Region=="Tayside") %>%  # select only the rows in Tayside
+  select(Data_Zone,CIF,ALCOHOL,DRUG,SMR,EMERG) %>%
+  drop_na() %>%  # remove rows with missing values
+  unique() # keep only unique rows - we need this because the spatial resolution of the data is datazones, but each row is a different postcode, which means that there are multiple rows for each datazone
+
+points2 <- health_data2 %>% 
+  select(-Data_Zone) # The "Data Zone" variable will not be used for clustering
+
+summary(points2)
+```
+```{r - scatterplot Tayside, CIF, ALCOHOL}
+points2 %>%
+  ggplot(aes(x=CIF,y=ALCOHOL)) +
+  geom_point(alpha = 0.8) 
+```
+```{r box plot - scot_data tayside}
+health_data2 %>% 
+  pivot_longer(-Data_Zone) %>%  # this reformats the data so we can create boxplots for each numeric column
+  ggplot(aes(x=name,y=value,fill=name))+
+  geom_boxplot() +                        
+  geom_jitter(alpha = 0.1)# add data points
+```
+```{r - Practice Tayside silhoutte }
+fviz_nbclust(points2, kmeans, k.max = 5, method = "silhouette")
+```
+```{r Practice Tayside wss}
+
+fviz_nbclust(points2, kmeans, k.max = 5, method = "wss")
+```
+
+
+=======
+>>>>>>> main
+

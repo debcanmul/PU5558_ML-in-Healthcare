@@ -26,6 +26,8 @@ Make sure you run install.packages("tidyverse"), install.packages("tidymodels"),
 
 ```{r load-packages}
 
+install.packages("cluster")
+
 library(tidyverse)
 library(tidymodels)
 library(factoextra)
@@ -175,6 +177,13 @@ points %>%
 
 ```
 
+```{r Scatterplot-Health-Data Changed Variables}
+
+points %>%
+  ggplot(aes(x=SMR,y=DRUG)) +
+  geom_point(alpha = 0.8)  
+```
+Note - The comment below refers to the first scatterplot.
 We can see that in general, most points are in the bottom left corner, with a few scattered further up and to the right. We can also draw boxplots for each numeric variable:
 
 ```{r boxplots-health-data}
@@ -194,7 +203,13 @@ Based on the graphs, we expect to have two clusters: a larger one with smaller s
 fviz_nbclust(points, kmeans, k.max = 5, method = "silhouette")
 
 ```
+```{r cluster- health-data- wss}
 
+fviz_nbclust(points, kmeans, k.max = 5, method = "wss")
+```
+
+
+Note - Comment below is for the silhouette graph.
 As expected, the optimal number of clusters is 2. Let's use the kmeans() function with two clusters, and look at the output.
 
 ```{r two-clusters-health-data}
@@ -222,6 +237,18 @@ data_clustered %>%
 
 As we have more than two variables in this dataset, fviz_cluster() would do principle component analysis and include the first two components for the plot. Try it if you'd like!
 
+```{r}
+head(health_data)
+```
+
+```{r}
+#need to give coordinates to fviz_cluster
+clustertest<-health_data %>% 
+  select(SMR,EMERG)%>%
+fviz_cluster(kclust, data =clustertest)
+```
+
+
 ## Scaling
 
 One step that we did not discuss here is scaling the variables, so they have similar units. This was not necessary for our example, because all variables already had similar scales. But in general, if, for example, you had one variable between 0-1 and another 100-300, this would affect the distance calculation. You can use the scale() function to normalise the variables:
@@ -233,6 +260,49 @@ We will talk more about scaling as one of the pre-processing steps in supervised
 ## Practice
 
 Repeat this analysis for a different health board or council area, and for a different group of variables from the Scotland Vulnerability Resource. Remember to use only numeric variables, as k-means does not work with categorical data because it uses the Euclidean distance as the dissimilarity metric between clusters. Next, we will look at hierarchical clustering, which can use dissimilarity metrics suitable for categorical data.
+
+```{r - Start of my practice for Tayside}
+head(scot_data)
+```
+```{r}
+#checking for other regions in the NHS Health Board
+scot_data%>%
+  select(NHS_Health_Board_Region)%>%
+  unique()
+```
+
+```{r - Practice Tayside}
+health_data2 <- scot_data %>%
+  filter(NHS_Health_Board_Region=="Tayside") %>%  # select only the rows in Tayside
+  select(Data_Zone,CIF,ALCOHOL,DRUG,SMR,EMERG) %>%
+  drop_na() %>%  # remove rows with missing values
+  unique() # keep only unique rows - we need this because the spatial resolution of the data is datazones, but each row is a different postcode, which means that there are multiple rows for each datazone
+
+points2 <- health_data2 %>% 
+  select(-Data_Zone) # The "Data Zone" variable will not be used for clustering
+
+summary(points2)
+```
+```{r - scatterplot Tayside, CIF, ALCOHOL}
+points2 %>%
+  ggplot(aes(x=CIF,y=ALCOHOL)) +
+  geom_point(alpha = 0.8) 
+```
+```{r box plot - scot_data tayside}
+health_data2 %>% 
+  pivot_longer(-Data_Zone) %>%  # this reformats the data so we can create boxplots for each numeric column
+  ggplot(aes(x=name,y=value,fill=name))+
+  geom_boxplot() +                        
+  geom_jitter(alpha = 0.1)# add data points
+```
+```{r - Practice Tayside silhoutte }
+fviz_nbclust(points2, kmeans, k.max = 5, method = "silhouette")
+```
+```{r Practice Tayside wss}
+
+fviz_nbclust(points2, kmeans, k.max = 5, method = "wss")
+```
+
 
 ## Hierarchical Clustering
 
@@ -297,8 +367,18 @@ categ_points <- points %>%
 ```
 
 The input to hclust() is the dissimilarity matrix, which can be calculated with the function daisy(). This function can use the Euclidean distance, but also metrics appropriate for categorical or mixed data, such as Gower's distance. Use ?daisy to read more about the options for metrics.
+```{r}
+?daisy
+
+```
+
 
 hclust() also has a "method" input, as you see below. This is the clustering method. Here, again, I encourage you to use ?hclust to read about the different methods. You do not need to understand everything about these options, but you should keep in mind that when you use machine learning algorithms, you need to make decisions such as the type of clustering method you use, and this affects your results.
+
+```{r}
+?hclust
+```
+
 
 ```{r hierarchical-clustering}
 
