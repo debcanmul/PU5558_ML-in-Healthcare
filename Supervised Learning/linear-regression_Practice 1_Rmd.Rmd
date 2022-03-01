@@ -1,0 +1,48 @@
+---
+title: "Linear Regression - Practice 1"
+author: "Debbie Cannon"
+date: "01/03/2022"
+output: html_document
+---
+
+Repeat this analysis for different predictors, or a different outcome. Remember that if you use categorical predictors, you will need to convert them to numeric first.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load packages}
+library(tidyverse)    # for general data science
+library(tidymodels)   # for machine learning
+library(corrplot)     # for visualising correlation matrices
+library(vip)          # for variable importance plots
+
+```
+
+```{r read in data}
+scot_data <- read_csv("Scotland-Vulnerability-Resource_v0.2.csv")
+
+glimpse(scot_data)
+```
+
+```{r remove the postcode}
+DZ_data <- scot_data %>%
+  select(-Postcode) %>%
+  drop_na() %>%    # remove rows with missing values
+  unique()         # keep unique rows
+```
+
+```{r remove geography names and population numbers}
+DZ_data <- DZ_data %>%
+  select(-Data_Zone,-Intermediate_Zone,-Council_area,-NHS_Health_Board_Region,-Total_population,-Working_age_population,-URname)
+```
+
+Let's see if we can predict the variable "DRUG".
+
+```{r}
+DZ_data %>%
+ggplot(aes(x = DRUG)) + 
+  geom_histogram(bins = 30, col= "white")
+```
+
+#need to transform the data because it is skewed to the right
