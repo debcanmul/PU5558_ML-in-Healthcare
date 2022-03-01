@@ -41,7 +41,7 @@ Let's see if we can predict the variable "DRUG".
 
 ```{r}
 DZ_data %>%
-ggplot(aes(x = DRUG)) + 
+ggplot(aes(x = SMR)) + 
   geom_histogram(bins = 30, col= "white")
 ```
 
