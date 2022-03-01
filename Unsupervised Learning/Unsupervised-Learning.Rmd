@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <<<<<<< debcanmul_Unsupervised-Learning
 install.packages("cluster")
 
@@ -89,4 +90,6 @@ fviz_nbclust(points2, kmeans, k.max = 5, method = "wss")
 
 =======
 >>>>>>> main
+=======
+>>>>>>> fef13be2811667f7e550ea1fb27e73f886d808a1
 
