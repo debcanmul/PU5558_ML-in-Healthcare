@@ -41,8 +41,18 @@ Let's see if we can predict the variable "DRUG".
 
 ```{r}
 DZ_data %>%
+ggplot(aes(x = DRUG)) + 
+  geom_histogram(bins = 30, col= "white")
+```
+
+#need to transform the data because it is skewed to the right.
+
+
+
+
+```{r checking to see if SMR is a normal distribution}
+DZ_data %>%
 ggplot(aes(x = SMR)) + 
   geom_histogram(bins = 30, col= "white")
 ```
 
-#need to transform the data because it is skewed to the right
