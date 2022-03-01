@@ -26,6 +26,7 @@ Make sure you run install.packages("tidyverse"), install.packages("tidymodels"),
 
 ```{r load-packages}
 
+
 library(tidyverse)
 library(tidymodels)
 library(factoextra)
@@ -175,6 +176,7 @@ points %>%
 
 ```
 
+
 We can see that in general, most points are in the bottom left corner, with a few scattered further up and to the right. We can also draw boxplots for each numeric variable:
 
 ```{r boxplots-health-data}
@@ -222,6 +224,7 @@ data_clustered %>%
 
 As we have more than two variables in this dataset, fviz_cluster() would do principle component analysis and include the first two components for the plot. Try it if you'd like!
 
+
 ## Scaling
 
 One step that we did not discuss here is scaling the variables, so they have similar units. This was not necessary for our example, because all variables already had similar scales. But in general, if, for example, you had one variable between 0-1 and another 100-300, this would affect the distance calculation. You can use the scale() function to normalise the variables:
@@ -233,6 +236,7 @@ We will talk more about scaling as one of the pre-processing steps in supervised
 ## Practice
 
 Repeat this analysis for a different health board or council area, and for a different group of variables from the Scotland Vulnerability Resource. Remember to use only numeric variables, as k-means does not work with categorical data because it uses the Euclidean distance as the dissimilarity metric between clusters. Next, we will look at hierarchical clustering, which can use dissimilarity metrics suitable for categorical data.
+
 
 ## Hierarchical Clustering
 
