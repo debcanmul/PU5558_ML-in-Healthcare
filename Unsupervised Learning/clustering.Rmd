@@ -298,6 +298,10 @@ health_data2 %>%
 ```{r - Practice Tayside silhoutte }
 fviz_nbclust(points2, kmeans, k.max = 5, method = "silhouette")
 ```
+```{r Practice Tayside wss}
+
+fviz_nbclust(points2, kmeans, k.max = 5, method = "wss")
+```
 
 
 ## Hierarchical Clustering
