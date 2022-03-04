@@ -11,6 +11,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Make sure you run install.packages for any packages you do not have installed first! In this case, you will probably need: install.packages("corrplot") and install.packages("vip")
 
+```{r}
+install.packages("corrplot")
+install.packages("vip")
+```
+
+
+
 ```{r load-packages}
 
 library(tidyverse)    # for general data science
@@ -117,6 +124,33 @@ DZ_train %>%
 ```
 
 Try the same for the rest of our proposed predictors. We will also check this after we have fit our model, by plotting the residuals vs the fitted values.
+
+```{r}
+DZ_train %>%
+  ggplot(aes(x = Income_rate, y = DEPRESS)) + 
+  geom_point()
+```
+```{r}
+DZ_train %>%
+  ggplot(aes(x = Employment_rate, y = DEPRESS)) + 
+  geom_point()
+```
+
+```{r}
+DZ_train %>%
+  ggplot(aes(x = CIF, y = DEPRESS)) + 
+  geom_point()
+```
+```{r}
+DZ_train %>%
+  ggplot(aes(x = EMERG, y = DEPRESS)) + 
+  geom_point()
+```
+```{r}
+DZ_train %>%
+  ggplot(aes(x = Attendance, y = DEPRESS)) + 
+  geom_point()
+```
 
 Linear regression has three other assumptions:
 
