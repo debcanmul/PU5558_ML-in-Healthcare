@@ -1,0 +1,202 @@
+---
+title: "Linear Regression - Practice 1"
+author: "Debbie Cannon"
+date: "01/03/2022"
+output: html_document
+---
+
+Repeat this analysis for different predictors, or a different outcome. Remember that if you use categorical predictors, you will need to convert them to numeric first.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load packages}
+library(tidyverse)    # for general data science
+library(tidymodels)   # for machine learning
+library(corrplot)     # for visualising correlation matrices
+library(vip)          # for variable importance plots
+
+```
+
+```{r read in data}
+scot_data <- read_csv("Scotland-Vulnerability-Resource_v0.2.csv")
+
+glimpse(scot_data)
+```
+
+```{r remove the postcode}
+DZ_data <- scot_data %>%
+  select(-Postcode) %>%
+  drop_na() %>%    # remove rows with missing values
+  unique()         # keep unique rows
+```
+
+```{r remove geography names and population numbers}
+DZ_data <- DZ_data %>%
+  select(-Data_Zone,-Intermediate_Zone,-Council_area,-NHS_Health_Board_Region,-Total_population,-Working_age_population,-URname)
+```
+
+Let's see if we can predict the variable "DRUG".
+
+```{r}
+DZ_data %>%
+ggplot(aes(x = DRUG)) + 
+  geom_histogram(bins = 30, col= "white")
+```
+
+#need to transform the data because it is skewed to the right.
+
+I am going to use the variable Standard Mortality Rate (SMR) instead.
+
+
+```{r checking to see if SMR is a normal distribution}
+DZ_data %>%
+ggplot(aes(x = SMR)) + 
+  geom_histogram(bins = 30, col= "white")
+```
+I will try using SMR as this is less skewed than the DRUG variable.
+```{r data-splitting}
+
+# Create the split
+DZ_split <- DZ_data %>%
+    initial_split(prop = 0.8,        # proportion in training set
+                  strata = SMR)  # ensure distribution of SMR in the two datasets in similar
+
+# Save the two datasets as objects
+DZ_train <- training(DZ_split)
+DZ_test <- testing(DZ_split)
+
+```
+
+```{r data-corr}
+
+DZ_cor <- cor(DZ_train %>% select_if(is.numeric))  # we can only use numeric variables to calculate correlation
+corrplot(DZ_cor, tl.cex = 0.5)
+
+```
+```{r scatterplot income_rate}
+
+DZ_train %>%
+  ggplot(aes(x = Income_rate, y = SMR)) + 
+  geom_point()
+
+```
+
+```{r scatterplot Employment_rate}
+
+DZ_train %>%
+  ggplot(aes(x = Employment_rate, y = SMR)) + 
+  geom_point()
+
+```
+
+```{r scatterplot CIF (Comparative illness factor)}
+
+DZ_train %>%
+  ggplot(aes(x = CIF, y = SMR)) + 
+  geom_point()
+
+```
+```{r scatterplot EMERG Emergency stays in hospital}
+
+DZ_train %>%
+  ggplot(aes(x = EMERG, y = SMR)) + 
+  geom_point()
+```
+
+
+```{r specify-recipe}
+
+simple_rec <- DZ_train %>%
+  recipe(SMR ~ Income_rate + Employment_rate + CIF + EMERG) %>%
+  step_zv(all_predictors()) %>%
+  step_corr(all_predictors())
+```
+
+```{r specify-model}
+
+## A linear regression model specification with default settings
+lm_spec <- linear_reg() 
+
+```
+
+
+```{r specify-workflow}
+
+DZ_wflow <-workflow() %>%
+           add_recipe(simple_rec) %>%
+           add_model(lm_spec)
+
+```
+
+```{r train-model}
+
+DZ_wflow_fit <- DZ_wflow %>%
+    fit(data = DZ_train)
+
+```
+
+
+```{r extract-model}
+
+fitted_model <- extract_fit_engine(DZ_wflow_fit)
+
+```
+
+```{r residuals-fitted}
+plot(fitted_model, 1)
+```
+
+```{r q-q}
+plot(fitted_model, 2)
+```
+
+
+```{r scale-location}
+plot(fitted_model, 3)
+```
+
+```{r variable-importance}
+
+DZ_wflow_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 2)
+
+```
+
+
+```{r eval-testing-data}
+
+# Use the model for prediction on the testing data now
+predicted_SMR_test <- DZ_wflow_fit %>%
+  predict(new_data = DZ_test)
+
+# As before, add the predicted column to the dataset so we have everything in one dataframe
+results_test <- DZ_test %>%
+  bind_cols(predicted_SMR_test) %>%
+  rename(pred_SMR = .pred)   # rename the predicted column
+
+# Evaluate the performance
+metrics(results_test, truth = SMR, estimate = pred_SMR)
+
+```
+
+```{r plot-model-prediction}
+
+results_test %>%
+  ggplot(aes(x = SMR, y = pred_SMR)) +
+  geom_abline(intercept=0, slope=1) +  # we want data to fall close to this line
+  geom_point() +
+  xlab("Actual outcome values") + 
+  ylab("Predicted outcome values")
+
+```
+
+
+
+
+
+
+
+

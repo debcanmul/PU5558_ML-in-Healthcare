@@ -1,0 +1,56 @@
+---
+title: "Body Fat - Linear Regression"
+author: "Debbie Cannon"
+date: "11/03/2022"
+output: html_document
+---
+Predict bodyfat
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r - Install Packages}
+install.packages("corrplot")
+install.packages("vip")
+```
+
+
+```{r load packages}
+
+
+
+library(tidyverse)    # for general data science
+library(tidymodels)   # for machine learning
+library(corrplot)     # for visualising correlation matrices
+library(vip)          # for variable importance plots
+
+```
+
+```{r load data}
+
+
+bodyfat_data <- read_csv("bodyfat.csv")
+
+glimpse(bodyfat_data)
+  
+```
+
+```{r}
+summary(bodyfat_data)
+```
+
+```{r check for missing values}
+bodyfat_data%>%
+  summarise_all(~sum(is.na(.)))
+```
+
+```{r check the distribution of outcome variable}
+
+
+bodyfat_data %>%
+ggplot(aes(x = BodyFat)) + 
+  geom_histogram(bins = 30, col= "white")
+
+```
+
+The distribution is normally distributed so transforming is not required.

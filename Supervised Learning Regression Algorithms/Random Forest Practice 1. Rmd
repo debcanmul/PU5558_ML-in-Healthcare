@@ -1,0 +1,105 @@
+---
+title: "Random Forest Practice 1"
+author: "Debbie Cannon"
+date: "07/03/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-packages}
+
+library(tidyverse)    # for general data science
+library(tidymodels)   # for machine learning
+library(vip)          # for variable importance plots
+library(randomForest) # for the random forest model engine we will be using
+
+```
+
+
+
+```{r prepare-data}
+
+scot_data <- read_csv("Scotland-Vulnerability-Resource_v0.2.csv")
+
+DZ_data <- scot_data %>%
+  select(-Postcode) %>%
+  drop_na() %>%    # remove rows with missing values
+  unique() %>%     # keep unique rows
+  select(-Data_Zone,-Intermediate_Zone,-Council_area,-NHS_Health_Board_Region,-Total_population,-Working_age_population,-URname)
+
+```
+
+
+```{r data-splitting}
+
+DZ_split <- DZ_data %>%
+    initial_split(prop = 0.8,
+                  strata = SMR)
+
+DZ_train <- training(DZ_split)
+DZ_test <- testing(DZ_split)
+
+```
+
+
+```{r specify-recipe}
+
+simple_rec <- DZ_train %>%
+  recipe(SMR ~ Income_rate + Employment_rate + CIF + EMERG + EMERG) %>%
+  step_zv(all_predictors()) %>%
+  step_corr(all_predictors())
+
+```
+
+```{r specify-model}
+
+# Random forest model specification
+rf_spec <- rand_forest() %>%
+    set_mode("regression") %>%
+    set_engine("randomForest")
+
+```
+
+```{r specify-workflow}
+
+DZ_wflow <-workflow() %>%
+           add_recipe(simple_rec) %>%
+           add_model(rf_spec)
+
+```
+
+
+```{r train-model}
+
+DZ_wflow_fit <- DZ_wflow %>%
+    fit(data = DZ_train)
+
+```
+
+```{r variable-importance}
+
+DZ_wflow_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 5)
+
+```
+
+```{r eval-training-data}
+
+# Use the model for prediction on the same data it was trained on (bad idea!)
+predicted_SMR <- DZ_wflow_fit %>%
+  predict(new_data = DZ_train)
+
+# Add the predicted column to the dataset so we have everything in one dataframe
+results_train <- DZ_train %>%
+  bind_cols(predicted_SMR) %>%
+  rename(pred_SMR = .pred)   # rename the predicted column
+
+# Evaluate the performance
+metrics(results_train, truth = SMR, estimate = pred_)
+
+```
+

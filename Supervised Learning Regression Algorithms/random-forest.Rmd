@@ -1,0 +1,205 @@
+---
+title: "random-forest"
+author: "DBlana"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+
+Make sure you run install.packages for any packages you do not have installed first! In this case, you will probably need: install.packages("randomForest")
+
+```{r load-packages}
+
+library(tidyverse)    # for general data science
+library(tidymodels)   # for machine learning
+library(vip)          # for variable importance plots
+library(randomForest) # for the random forest model engine we will be using
+
+```
+
+## Load data
+
+We will use the same data as in the previous worksheet. Here again we will aim to predict the variable "DEPRESS" using income and employment rate, CIF, EMERG, attendance, and SIMD health domain rank as our predictors. The data preparation and data splitting steps are exactly the same as before:
+
+```{r prepare-data}
+
+scot_data <- read_csv("Scotland-Vulnerability-Resource_v0.2.csv")
+
+DZ_data <- scot_data %>%
+  select(-Postcode) %>%
+  drop_na() %>%    # remove rows with missing values
+  unique() %>%     # keep unique rows
+  select(-Data_Zone,-Intermediate_Zone,-Council_area,-NHS_Health_Board_Region,-Total_population,-Working_age_population,-URname)
+
+```
+
+## Data splitting
+
+As we did in the previous worksheet, let's split our dataset into training and testing. We'll put 80% of it into a training dataset and 20% of it into a testing dataset, and make sure the "DEPRESS" variable has similar distributions in the two datasets:
+
+```{r data-splitting}
+
+DZ_split <- DZ_data %>%
+    initial_split(prop = 0.8,
+                  strata = DEPRESS)
+
+DZ_train <- training(DZ_split)
+DZ_test <- testing(DZ_split)
+
+```
+
+## Selection and preprocessing of predictors
+
+Compared to linear regression, which has multiple assumptions, random forests do not require much pre-processing of the data. 
+
+Remember you can read about recommended pre-processing steps for various models here: https://www.tmwr.org/pre-proc-table.html
+
+```{r specify-recipe}
+
+simple_rec <- DZ_train %>%
+  recipe(DEPRESS ~ Income_rate + Employment_rate + no_qualifications + CIF + EMERG + Attendance + SIMD2020_Health_Domain_Rank) %>%
+  step_zv(all_predictors()) %>%
+  step_corr(all_predictors())
+
+```
+
+## Model specification
+
+Random forests can be used either for regression or classification, so we do need to specify the model mode. We will use randomForest as the engine. Read more about how to specify random forest models here: https://parsnip.tidymodels.org/reference/rand_forest.html  
+
+Random forest models have a few parameters we need to set. These are called "hyperparameters" or "tuning parameters" and they are not fitted using the training data. Instead, we need to set them in advance, and their values affect how good our model is.
+
+There are ways to automatically tune hyperparameters, but we won't go into these in this course. We will first try fitting our model with the default values of the hyperparameters. The randomForest engine has 3 tuning parameters:
+
+1. mtry: Number of randomly selected predictors for each tree (default: number of predictors divided by 3)
+2. trees: Number of trees in the ensemble (default: 500)
+3. min_n: Minimal size of the end (leaf) nodes (default: 5)
+
+See here for the definitions and default values of the tuning parameters: https://parsnip.tidymodels.org/reference/details_rand_forest_randomForest.html
+
+```{r specify-model}
+
+# Random forest model specification
+rf_spec <- rand_forest() %>%
+    set_mode("regression") %>%
+    set_engine("randomForest")
+
+```
+
+## Workflow
+
+Let's put recipe and model together in a workflow:
+
+```{r specify-workflow}
+
+DZ_wflow <-workflow() %>%
+           add_recipe(simple_rec) %>%
+           add_model(rf_spec)
+
+```
+
+The rest of the code is exactly the same as for linear regression, as the training and evaluating steps are model-independent:
+
+## Model training
+
+We use fit() on our training data, which prepares the predictors according to our recipe, and trains the model using the resulting predictors:
+
+```{r train-model}
+
+DZ_wflow_fit <- DZ_wflow %>%
+    fit(data = DZ_train)
+
+```
+
+Let's have a look at which variables are most important using vip():
+
+```{r variable-importance}
+
+DZ_wflow_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 5)
+
+```
+
+## Model evaluation
+
+We'll use the same evaluation metrics (root mean squared error, R squared and mean absolute error). As before, let's evaluate on the training set first, and then on the testing set: 
+
+```{r eval-training-data}
+
+# Use the model for prediction on the same data it was trained on (bad idea!)
+predicted_DEPRESS <- DZ_wflow_fit %>%
+  predict(new_data = DZ_train)
+
+# Add the predicted column to the dataset so we have everything in one dataframe
+results_train <- DZ_train %>%
+  bind_cols(predicted_DEPRESS) %>%
+  rename(pred_DEPRESS = .pred)   # rename the predicted column
+
+# Evaluate the performance
+metrics(results_train, truth = DEPRESS, estimate = pred_DEPRESS)
+
+```
+
+That looks better than our linear regression results. (Don't worry if you can't remember, we will directly compare them in the next worksheet.) But how does it do on the testing data?
+
+```{r eval-testing-data}
+
+# Use the model for prediction on the same data it was trained on (bad idea!)
+predicted_DEPRESS_test <- DZ_wflow_fit %>%
+  predict(new_data = DZ_test)
+
+# Add the predicted column to the dataset so we have everything in one dataframe
+results_test <- DZ_test %>%
+  bind_cols(predicted_DEPRESS_test) %>%
+  rename(pred_DEPRESS = .pred)   # rename the predicted column
+
+# Evaluate the performance
+metrics(results_test, truth = DEPRESS, estimate = pred_DEPRESS)
+
+```
+
+The performance is noticeable worse, as expected. Random forests and other black-box methods are able to essentially memorize the training set, so their performance on the training data can be unrealistically optimistic. This is why using the training data for evaluation is a bad idea. 
+
+Let's plot the actual and predicted values of "DEPRESS" so we can visually inspect the model fit.
+
+```{r plot-model-prediction}
+
+results_test %>%
+  ggplot(aes(x = DEPRESS, y = pred_DEPRESS)) +
+  geom_abline(intercept=0, slope=1) +  # we want data to fall close to this line
+  geom_point() +
+  xlab("actual outcome values") + 
+  ylab("predicted outcome values")
+
+```
+
+## Effect of hyperparameters
+
+Remember that random forest models have three tuning parameters we need to set before we fit them. So far, we used the default values. Could we improve the performance of our model if we changed the values of the tuning parameters?
+
+Here's how we would do this:
+
+```{r specify-model-parameters}
+
+## model specification with different hyperparameter values
+rf_spec <- rand_forest(mtry = 10, trees = 600, min_n = 4) %>%
+    set_mode("regression") %>%
+    set_engine("randomForest")
+
+```
+
+Change the hyperparameter values and repeat the model fitting and evaluation. Should you use the training or dataset for deciding the best values for the model hyperparameters? 
+
+## Practice
+
+The practice is the same as the previous worksheet, but for a random forest model:
+
+1. Repeat this analysis for different predictors, or a different outcome. 
+
+2. Predict body fat from the variables in the bodyfat.csv data using a random forest model. You can read more about what is included in the dataset here: https://www.kaggle.com/fedesoriano/body-fat-prediction-dataset
+
+
