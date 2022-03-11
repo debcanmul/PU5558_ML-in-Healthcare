@@ -54,3 +54,23 @@ ggplot(aes(x = BodyFat)) +
 ```
 
 The distribution is normally distributed so transforming is not required.
+
+I'm going to remove unwanted variables from the data set.
+
+```{r data-splitting}
+
+# Create the split
+bodyfat_split<- bodyfat_data %>%
+    initial_split(prop = 0.8,        # proportion in training set
+                  strata = BodyFat)  # ensure distribution of BodyFat in the two datasets in similar
+
+# Save the two datasets as objects
+bodyfat_train <- training(bodyfat_split)
+bodyfat_test <- testing(bodyfat_split)
+
+```
+
+
+
+
+
