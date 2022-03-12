@@ -55,7 +55,6 @@ ggplot(aes(x = BodyFat)) +
 
 The distribution is normally distributed so transforming is not required.
 
-I'm going to remove unwanted variables from the data set.
 
 ```{r data-splitting}
 
@@ -70,7 +69,133 @@ bodyfat_test <- testing(bodyfat_split)
 
 ```
 
+```{r data-corr}
+
+bodyfat_cor <- cor(bodyfat_train %>% select_if(is.numeric))  # we can only use numeric variables to calculate correlation
+corrplot(bodyfat_cor, tl.cex = 0.5)
+
+```
+
+The correlation plot shows there is a strong positive linear relationship with abdomen. Weight and chest also potential predictors for body fat.
+
+```{r scatterplot}
+
+bodyfat_train %>%
+  ggplot(aes(x = Abdomen, y = BodyFat)) + 
+  geom_point()
+
+```
+
+```{r scatterplot}
+
+bodyfat_train %>%
+  ggplot(aes(x = Weight, y = BodyFat)) + 
+  geom_point()
+
+```
 
 
+```{r scatterplot}
+
+bodyfat_train %>%
+  ggplot(aes(x = Chest, y = BodyFat)) + 
+  geom_point()
+
+```
 
 
+```{r specify-recipe}
+
+simple_rec <- bodyfat_train %>%
+  recipe(BodyFat ~ Abdomen + Weight + Chest) %>%
+  step_zv(all_predictors()) %>%
+  step_corr(all_predictors())
+
+```
+
+
+```{r specify-model}
+
+## A linear regression model specification with default settings
+lm_spec <- linear_reg() 
+
+```
+
+```{r specify-workflow}
+
+bodyfat_wflow <-workflow() %>%
+           add_recipe(simple_rec) %>%
+           add_model(lm_spec)
+
+```
+
+
+```{r train-model}
+
+bodyfat_wflow_fit <- bodyfat_wflow %>%
+    fit(data = bodyfat_train)
+
+```
+
+```{r extract-model}
+
+fitted_model <- extract_fit_engine(bodyfat_wflow_fit)
+
+```
+
+```{r q-q}
+plot(fitted_model, 2)
+```
+
+```{r variable-importance}
+
+bodyfat_wflow_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip(num_features = 3)
+
+```
+
+```{r eval-training-data - WOULDN'T USUALLY DO THIS!}
+
+# Use the model for prediction on the same data it was trained on (bad idea!)
+predicted_bodyfat <- bodyfat_wflow_fit %>%
+  predict(new_data = bodyfat_train)
+
+# Add the predicted column to the dataset so we have everything in one dataframe
+results_train <- bodyfat_train %>%
+  bind_cols(predicted_bodyfat) %>%
+  rename(pred_bodyfat = .pred)   # rename the predicted column
+
+# Evaluate the performance
+metrics(results_train, truth = BodyFat, estimate = pred_bodyfat)
+
+```
+
+
+```{r eval-testing-data}
+
+# Use the model for prediction on the testing data now
+predicted_bodyfat_test <- bodyfat_wflow_fit %>%
+  predict(new_data = bodyfat_test)
+
+# As before, add the predicted column to the dataset so we have everything in one dataframe
+results_test <- bodyfat_test %>%
+  bind_cols(predicted_bodyfat_test) %>%
+  rename(pred_bodyfat = .pred)   # rename the predicted column
+
+# Evaluate the performance
+metrics(results_test, truth = BodyFat, estimate = pred_bodyfat)
+
+```
+
+
+```{r plot-model-prediction}
+
+results_test %>%
+  ggplot(aes(x = BodyFat, y = pred_bodyfat)) +
+  geom_abline(intercept=0, slope=1) +  # we want data to fall close to this line
+  geom_point() +
+  xlab("Actual outcome values") + 
+  ylab("Predicted outcome values")
+
+```
